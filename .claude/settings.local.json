@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git fetch:*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File:*)",
+      "WebFetch(domain:konva.dev)",
+      "WebSearch",
+      "Bash(cat:*)",
+      "Bash(npm create:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(npm exec:*)",
+      "Bash(./node_modules/.bin/tailwindcss:*)",
+      "Bash(npm run build:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(powershell -Command \"Get-Content -Path ''src/components/canvas/Canvas2D.tsx'' | Measure-Object -Line\")",
+      "Bash(powershell -Command \"\\(Get-Content ''src/components/canvas/Canvas2D.tsx''\\) -replace ''import \\\\{ useRef, useCallback, useState, useEffect \\\\} from'', ''import { useRef, useCallback, useState, useEffect, useMemo } from'' | Set-Content ''src/components/canvas/Canvas2D.tsx''\")",
+      "Bash(mkdir:*)",
+      "Bash(powershell -Command \"Test-Path ''D:\\\\potontos\\\\Floorplan-assembly\\\\specs\\\\001-core-architecture-setup\\\\checklists''\")",
+      "Bash(npx tsc:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(del \"D:\\\\potontos\\\\Floorplan-assembly\\\\src\\\\App.tsx.bak\")",
+      "Bash(node -e:*)",
+      "Bash(node:*)"
+    ]
+  }
+}
