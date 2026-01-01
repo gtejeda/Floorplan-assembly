@@ -37,5 +37,6 @@ pnpm-debug.log*
 .idea/
 
 # vite
+.vite/
 *.local
 nul
