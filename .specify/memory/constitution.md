@@ -81,10 +81,9 @@ Users MUST consciously associate real-world size with every visual element.
 ## Technology Stack
 
 **Frontend Framework**: React 18+ with TypeScript (strict mode)
-**2D Rendering**: HTML5 Canvas with custom rendering engine or Fabric.js/Konva.js for
-object manipulation
-**3D Rendering**: Three.js for WebGL-based 3D visualization
-**State Management**: Zustand or Redux Toolkit for unified application state
+**2D Rendering**: Konva.js with react-konva for object manipulation
+**3D Rendering**: Babylon.js for WebGL-based 3D visualization with game-like controls
+**State Management**: Zustand for unified application state with Zundo undo/redo middleware
 **Build System**: Vite for fast development iteration
 **Testing**: Vitest for unit tests, Playwright for E2E tests
 **Styling**: Tailwind CSS or CSS Modules

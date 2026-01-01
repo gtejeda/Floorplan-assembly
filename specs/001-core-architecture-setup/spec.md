@@ -38,6 +38,7 @@ As a property planner, I want to add named areas (pool, house, court, etc.) to m
 3. **Given** I have placed an area, **When** I resize it by dragging corner handles, **Then** the dimensions update in real-time showing the new width, height, and total square meters.
 4. **Given** I have multiple areas, **When** two areas overlap, **Then** the system visually indicates the overlap and calculates the overlapping area in square meters.
 5. **Given** I have areas on the lot, **When** I view the lot summary, **Then** I see total used area, remaining area, and a breakdown by area type.
+6. **Given** I have selected an area, **When** I edit its elevation property in the properties panel, **Then** the 3D view updates to show the area at the new height (e.g., 6m for a two-story house).
 
 ---
 

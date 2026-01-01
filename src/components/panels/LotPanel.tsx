@@ -124,6 +124,23 @@ export function LotPanel() {
           </select>
         </div>
 
+        {/* Project description for AI */}
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">
+            Project Description
+            <span className="text-gray-500 ml-1 font-normal">
+              (for AI rendering)
+            </span>
+          </label>
+          <textarea
+            value={project.lot.description ?? ''}
+            onChange={(e) => updateLot({ description: e.target.value })}
+            placeholder="e.g., Modern minimalist architecture, tropical climate, sunny day, lush landscaping, photorealistic render..."
+            rows={4}
+            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm text-white focus:outline-none focus:border-blue-500 resize-none"
+          />
+        </div>
+
         {/* Lot area display */}
         <div className="pt-2 border-t border-gray-700">
           <div className="flex justify-between text-sm">

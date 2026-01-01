@@ -7,12 +7,12 @@ import { Grid } from './Grid';
 import { AreaRect } from './AreaRect';
 import { AreaLabel } from './AreaLabel';
 import { OverlapHighlight } from './OverlapHighlight';
-import { Asset2D } from './Asset2D';
-import { ImageViewer } from '@components/ui/ImageViewer';
-import { VideoPlayer } from '@components/ui/VideoPlayer';
 import { metersToPixels, pixelsToMeters, clamp } from '@lib/coordinates';
 import { getBounds, findOverlappingAreas } from '@lib/geometry';
-import type { Bounds, Area, Asset } from '@models/types';
+import type { Bounds, Area, AreaType } from '@models/types';
+
+// Area types that only appear in 3D view (structural elements and openings)
+const AREA_TYPES_3D_ONLY: AreaType[] = ['door', 'window', 'void', 'column', 'stairs', 'wall'];
 
 /**
  * Calculate the intersection bounds of two areas
@@ -38,22 +38,20 @@ export function Canvas2D({ onCoordinateChange, onAreaCreate }: Canvas2DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gridLayerRef = useRef<KonvaLayer>(null);
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
-  const [fullscreenImage, setFullscreenImage] = useState<Asset | null>(null);
-  const [fullscreenVideo, setFullscreenVideo] = useState<Asset | null>(null);
 
   // Store state
   const project = useFloorplanStore((state) => state.project);
   const rawAreas = useFloorplanStore((state) => state.project?.areas);
-  const rawAssets = useFloorplanStore((state) => state.project?.assets);
   const selectedIds = useFloorplanStore((state) => state.selectedIds);
 
   // Derived state with useMemo to prevent infinite loops
+  // Filter out 3D-only types (structural elements and openings)
   const areas = useMemo(() => {
     if (!rawAreas || rawAreas.length === 0) return [];
-    return [...rawAreas].sort((a, b) => a.zIndex - b.zIndex);
+    return [...rawAreas]
+      .filter((area) => !AREA_TYPES_3D_ONLY.includes(area.type))
+      .sort((a, b) => a.zIndex - b.zIndex);
   }, [rawAreas]);
-
-  const assets = useMemo(() => rawAssets ?? [], [rawAssets]);
 
   const overlappingAreas = useMemo(() => {
     if (!rawAreas || rawAreas.length === 0) return [];
@@ -136,27 +134,6 @@ export function Canvas2D({ onCoordinateChange, onAreaCreate }: Canvas2DProps) {
     },
     [select, addToSelection]
   );
-
-  // Handle asset double-click for fullscreen image/video view
-  const handleAssetDoubleClick = useCallback((asset: Asset) => {
-    if (!asset.sourceUrl) return;
-
-    if (asset.type === 'image') {
-      setFullscreenImage(asset);
-    } else if (asset.type === 'video') {
-      setFullscreenVideo(asset);
-    }
-  }, []);
-
-  // Close fullscreen image viewer
-  const handleCloseFullscreen = useCallback(() => {
-    setFullscreenImage(null);
-  }, []);
-
-  // Close fullscreen video viewer
-  const handleCloseVideoFullscreen = useCallback(() => {
-    setFullscreenVideo(null);
-  }, []);
 
   // Mouse wheel zoom
   const handleWheel = useCallback(
@@ -335,21 +312,6 @@ export function Canvas2D({ onCoordinateChange, onAreaCreate }: Canvas2DProps) {
           ))}
         </Layer>
 
-        {/* Assets layer (images and videos) */}
-        <Layer>
-          {assets
-            .filter((asset) => (asset.type === 'image' || asset.type === 'video') && asset.visible)
-            .map((asset) => (
-              <Asset2D
-                key={asset.id}
-                asset={asset}
-                isSelected={selectedIds.includes(asset.id)}
-                onSelect={handleAreaSelect}
-                onDoubleClick={handleAssetDoubleClick}
-              />
-            ))}
-        </Layer>
-
         {/* Overlap highlights layer - non-interactive */}
         <Layer listening={false}>
           {overlapBounds.map((bounds, index) => (
@@ -366,23 +328,6 @@ export function Canvas2D({ onCoordinateChange, onAreaCreate }: Canvas2DProps) {
         </Layer>
       </Stage>
 
-      {/* Fullscreen image viewer */}
-      {fullscreenImage && fullscreenImage.sourceUrl && (
-        <ImageViewer
-          imageUrl={fullscreenImage.sourceUrl}
-          imageName={fullscreenImage.originalFilename || fullscreenImage.name}
-          onClose={handleCloseFullscreen}
-        />
-      )}
-
-      {/* Fullscreen video player */}
-      {fullscreenVideo && fullscreenVideo.sourceUrl && (
-        <VideoPlayer
-          videoId={fullscreenVideo.sourceUrl}
-          videoName={fullscreenVideo.originalFilename || fullscreenVideo.name}
-          onClose={handleCloseVideoFullscreen}
-        />
-      )}
     </div>
   );
 }

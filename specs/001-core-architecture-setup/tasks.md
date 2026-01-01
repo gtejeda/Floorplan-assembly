@@ -101,6 +101,7 @@
 - [X] T040 [US2] Implement AreaCreateDialog modal with name, type, dimensions fields in src/components/dialogs/AreaCreateDialog.tsx
 - [X] T041 [US2] Create AreaList component showing all areas with selection in src/components/panels/AreaList.tsx
 - [X] T042 [US2] Create AreaProperties component for editing selected area in src/components/panels/AreaProperties.tsx
+- [X] T042a [US2] Add elevation (height) input field to AreaProperties panel in src/components/panels/AreaProperties.tsx
 - [X] T043 [US2] Implement select, addToSelection, clearSelection actions in viewerSlice in src/store/slices/viewerSlice.ts
 - [X] T044 [US2] Add click-to-select behavior on AreaRect in src/components/canvas/AreaRect.tsx
 - [X] T045 [US2] Implement overlap detection visualization (highlight overlapping areas) in src/components/canvas/Canvas2D.tsx
@@ -205,6 +206,8 @@
 - [X] T096 Add error boundary for graceful error handling in src/components/ErrorBoundary.tsx
 - [X] T097 [P] Add responsive sidebar collapse for smaller screens in src/components/ui/Sidebar.tsx
 - [X] T098 Run quickstart.md validation - verify all documented features work
+- [X] T099 [P] Create performance benchmark test validating 30+ FPS with 100 areas in 3D view in tests/e2e/performance.spec.ts
+- [X] T100 [P] Create interaction latency test validating <100ms response for drag/resize in tests/e2e/performance.spec.ts
 
 ---
 
@@ -304,7 +307,7 @@ Task T022: "Create StatusBar component shell in src/components/ui/StatusBar.tsx"
 Phase 1 → Phase 2 → US1 → US2 → US3 → US4 → US5 → Polish
 ```
 
-Total estimated tasks: 98
+Total estimated tasks: 101
 
 ---
 

@@ -12,6 +12,12 @@ export type AreaType =
   | 'lounge'
   | 'garden'
   | 'parking'
+  | 'door'
+  | 'window'
+  | 'void'
+  | 'column'
+  | 'stairs'
+  | 'wall'
   | 'custom';
 
 export type AssetType = 'image' | 'model' | 'video';
@@ -61,6 +67,7 @@ export interface Lot {
   height: number;     // Height/depth in meters (0.001 - 10000)
   gridSize: number;   // Grid spacing in meters (default: 1.0)
   unit: DisplayUnit;  // Display unit (internal always meters)
+  description: string; // Project description for AI rendering (style, environment, lighting)
 }
 
 /**
@@ -78,16 +85,22 @@ export interface Area {
   // Dimensions (meters)
   width: number;
   height: number;
-  elevation: number;  // 3D height/stories (> 0, default: 3.0)
+  elevation: number;  // 3D height of the box (> 0, default: 3.0)
+  baseHeight: number; // Height from ground to bottom of area (for windows, elevated platforms)
+  rotation: number;   // Rotation in degrees (0, 90, 180, 270) for attaching to different walls
 
   // Appearance
   color: string;      // Hex color code (#RRGGBB)
   opacity: number;    // 0.0 - 1.0 (default: 0.7)
 
   // Metadata
+  description: string; // User description for AI rendering (materials, style, details)
   locked: boolean;
   visible: boolean;
   zIndex: number;
+
+  // Assets attached to this area (reference images, 3D models, videos)
+  assets: Asset[];
 }
 
 /**
@@ -158,6 +171,7 @@ export const DEFAULT_LOT: Lot = {
   height: 30,
   gridSize: 1.0,
   unit: 'meters',
+  description: '',
 };
 
 export const DEFAULT_AREA_COLORS: Record<AreaType, string> = {
@@ -167,7 +181,57 @@ export const DEFAULT_AREA_COLORS: Record<AreaType, string> = {
   lounge: '#FF9800',
   garden: '#4CAF50',
   parking: '#9E9E9E',
+  door: '#8B4513',     // Brown for doors
+  window: '#87CEEB',   // Light blue for glass
+  void: '#2C2C2C',     // Dark gray for voids/openings
+  column: '#708090',   // Slate gray for structural columns
+  stairs: '#A0522D',   // Sienna for stairs
+  wall: '#D3D3D3',     // Light gray for walls
   custom: '#E91E63',
+};
+
+// Special rendering properties for certain area types
+export const AREA_TYPE_PROPERTIES: Record<AreaType, {
+  isTransparent?: boolean;  // Render with high transparency (windows)
+  isWireframe?: boolean;    // Render as wireframe only (voids)
+  defaultOpacity?: number;  // Override default opacity
+  defaultElevation?: number; // Override default elevation (height of box)
+  defaultBaseHeight?: number; // Override default base height (height from ground)
+  defaultWidth?: number;    // Override default width (meters)
+  defaultHeight?: number;   // Override default height/depth (meters)
+  allowZeroWidth?: boolean; // Allow width to be 0 (for thin elements)
+  allowZeroHeight?: boolean; // Allow height to be 0 (for thin elements)
+}> = {
+  house: {},
+  pool: { defaultElevation: -1.5 },
+  court: { defaultElevation: 0 },
+  lounge: {},
+  garden: { defaultElevation: 0.1 },
+  parking: { defaultElevation: 0 },
+  door: {
+    defaultElevation: 2.1,
+    defaultBaseHeight: 0,     // Doors start at ground level
+    defaultOpacity: 0.9,
+    defaultWidth: 0.9,
+    defaultHeight: 0.1,
+    allowZeroWidth: true,
+    allowZeroHeight: true,
+  },
+  window: {
+    isTransparent: true,
+    defaultOpacity: 0.3,
+    defaultElevation: 1.2,    // Window height ~1.2m
+    defaultBaseHeight: 1.0,   // Windows start 1m from ground
+    defaultWidth: 1.2,
+    defaultHeight: 0.1,
+    allowZeroWidth: true,
+    allowZeroHeight: true,
+  },
+  void: { isWireframe: true, defaultOpacity: 0.2 },
+  column: { defaultOpacity: 1.0, defaultWidth: 0.3, defaultHeight: 0.3 },
+  stairs: { defaultOpacity: 0.85, defaultWidth: 1.0, defaultHeight: 3.0 },
+  wall: { defaultOpacity: 0.95, defaultWidth: 0.2, defaultHeight: 5.0, allowZeroWidth: true },
+  custom: {},
 };
 
 export const DEFAULT_CANVAS_2D_STATE: Canvas2DState = {
@@ -207,11 +271,15 @@ export function createDefaultArea(
     width: partial.width,
     height: partial.height,
     elevation: partial.elevation ?? 3.0,
+    baseHeight: partial.baseHeight ?? 0,
+    rotation: partial.rotation ?? 0,
     color: partial.color ?? DEFAULT_AREA_COLORS[partial.type],
     opacity: partial.opacity ?? 0.7,
+    description: partial.description ?? '',
     locked: partial.locked ?? false,
     visible: partial.visible ?? true,
     zIndex: partial.zIndex ?? 0,
+    assets: partial.assets ?? [],
   };
 }
 

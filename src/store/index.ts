@@ -104,3 +104,8 @@ export type { ProjectSlice } from './slices/projectSlice';
 export type { ViewerSlice } from './slices/viewerSlice';
 export type { AreasSlice } from './slices/areasSlice';
 export type { AssetsSlice } from './slices/assetsSlice';
+
+// Expose store on window for E2E testing
+if (typeof window !== 'undefined') {
+  (window as unknown as { __FLOORPLAN_STORE__: typeof useFloorplanStore }).__FLOORPLAN_STORE__ = useFloorplanStore;
+}

@@ -10,6 +10,7 @@ import {
   HighlightLayer,
 } from '@babylonjs/core';
 import type { Area } from '@models/types';
+import { AREA_TYPE_PROPERTIES } from '@models/types';
 
 interface AreaBoxProps {
   scene: Scene;
@@ -43,58 +44,81 @@ export function AreaBox({
   const materialRef = useRef<StandardMaterial | null>(null);
   const highlightLayerRef = useRef<HighlightLayer | null>(null);
 
-  // Create/update mesh
+  // Create mesh when dimensions/appearance change (NOT position)
   useEffect(() => {
+    // Handle elevation: positive = above baseHeight, negative = below baseHeight, 0 = flat
+    const baseHeight = area.baseHeight ?? 0;
+    const isFlat = area.elevation === 0;
+    const boxHeight = isFlat ? 0.1 : Math.abs(area.elevation);
+
     // Create box mesh
     const box = MeshBuilder.CreateBox(
       `area-${area.id}`,
       {
         width: area.width,
-        height: area.elevation,
-        depth: area.height, // depth corresponds to Y in 2D
+        height: boxHeight,
+        depth: area.height,
       },
       scene
     );
 
-    // Position box (Babylon: X right, Y up, Z forward)
-    // In 2D, X is right, Y is down (we convert Y to Z in 3D)
+    // Set initial position
+    // X and Z are horizontal position, Y is vertical (up)
     box.position.x = area.x + area.width / 2;
-    box.position.y = area.elevation / 2; // Center vertically
     box.position.z = area.y + area.height / 2;
+
+    // Y position: baseHeight + half the box height (box is centered on its position)
+    if (isFlat) {
+      box.position.y = baseHeight + 0.05;
+    } else if (area.elevation < 0) {
+      // Underground: position below baseHeight
+      box.position.y = baseHeight - boxHeight / 2;
+    } else {
+      // Above ground: position above baseHeight
+      box.position.y = baseHeight + boxHeight / 2;
+    }
+
+    // Apply rotation around Y axis (vertical) - convert degrees to radians
+    box.rotation.y = (area.rotation ?? 0) * (Math.PI / 180);
+
+    // Get type-specific properties
+    const typeProps = AREA_TYPE_PROPERTIES[area.type];
 
     // Create material
     const rgb = hexToRgb(area.color);
     const material = new StandardMaterial(`material-${area.id}`, scene);
     material.diffuseColor = new Color3(rgb.r, rgb.g, rgb.b);
-    material.specularColor = new Color3(0.2, 0.2, 0.2);
     material.alpha = area.opacity;
+
+    // Special rendering for different types
+    if (typeProps.isTransparent) {
+      material.specularColor = new Color3(0.8, 0.8, 0.8);
+      material.specularPower = 64;
+      material.alpha = Math.min(area.opacity, 0.4);
+      material.backFaceCulling = false;
+    } else if (typeProps.isWireframe) {
+      material.wireframe = true;
+      material.specularColor = new Color3(0, 0, 0);
+    } else {
+      material.specularColor = new Color3(0.2, 0.2, 0.2);
+    }
+
     box.material = material;
 
-    // Setup action manager for hover and click
+    // Setup action manager for hover
     box.actionManager = new ActionManager(scene);
 
-    // Hover enter
     box.actionManager.registerAction(
       new ExecuteCodeAction(ActionManager.OnPointerOverTrigger, () => {
         onHover?.(area.id);
-        // Subtle hover effect
         material.emissiveColor = new Color3(0.1, 0.1, 0.1);
       })
     );
 
-    // Hover exit
     box.actionManager.registerAction(
       new ExecuteCodeAction(ActionManager.OnPointerOutTrigger, () => {
         onHover?.(null);
         material.emissiveColor = new Color3(0, 0, 0);
-      })
-    );
-
-    // Click
-    box.actionManager.registerAction(
-      new ExecuteCodeAction(ActionManager.OnPickTrigger, (evt) => {
-        const shiftKey = evt.sourceEvent?.shiftKey ?? false;
-        onClick?.(area.id, shiftKey);
       })
     );
 
@@ -118,7 +142,32 @@ export function AreaBox({
       meshRef.current = null;
       materialRef.current = null;
     };
-  }, [scene, area.id, area.x, area.y, area.width, area.height, area.elevation, area.color, area.opacity, onHover, onClick]);
+    // Note: area.x, area.y, area.baseHeight are NOT in dependencies - position is updated separately
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene, area.id, area.width, area.height, area.elevation, area.rotation, area.type, area.color, area.opacity, onHover]);
+
+  // Update position separately (smooth dragging without mesh recreation)
+  useEffect(() => {
+    if (!meshRef.current) return;
+
+    const box = meshRef.current;
+    const baseHeight = area.baseHeight ?? 0;
+    const isFlat = area.elevation === 0;
+    const boxHeight = isFlat ? 0.1 : Math.abs(area.elevation);
+
+    // Update X and Z (horizontal position)
+    box.position.x = area.x + area.width / 2;
+    box.position.z = area.y + area.height / 2;
+
+    // Update Y (vertical position based on baseHeight)
+    if (isFlat) {
+      box.position.y = baseHeight + 0.05;
+    } else if (area.elevation < 0) {
+      box.position.y = baseHeight - boxHeight / 2;
+    } else {
+      box.position.y = baseHeight + boxHeight / 2;
+    }
+  }, [area.x, area.y, area.width, area.height, area.baseHeight, area.elevation]);
 
   // Update selection highlight
   useEffect(() => {

@@ -8,13 +8,16 @@ import { LotPanel } from '@components/panels/LotPanel';
 import { AreaList } from '@components/panels/AreaList';
 import { AreaProperties } from '@components/panels/AreaProperties';
 import { AreaSummary } from '@components/ui/AreaSummary';
-import { AssetLibrary } from '@components/panels/AssetLibrary';
 import { Canvas2D } from '@components/canvas/Canvas2D';
 import { Viewer3D } from '@components/viewer/Viewer3D';
 import { Coordinates } from '@components/ui/Coordinates';
 import { Tooltip } from '@components/ui/Tooltip';
 import { AreaCreateDialog } from '@components/dialogs/AreaCreateDialog';
 import { AssetImportDialog } from '@components/dialogs/AssetImportDialog';
+import { AreaAssetManager } from '@components/dialogs/AreaAssetManager';
+import { AssetPreview } from '@components/dialogs/AssetPreview';
+import { AIDescriptionPanel } from '@components/panels/AIDescriptionPanel';
+import { AreaAssetToolbar } from '@components/ui/AreaAssetToolbar';
 
 // Keyboard shortcuts data for help dialog
 const KEYBOARD_SHORTCUTS = [
@@ -74,6 +77,19 @@ function App() {
   // Keyboard shortcuts help dialog state
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
 
+  // Asset manager and preview dialog state
+  const [isAssetManagerOpen, setIsAssetManagerOpen] = useState(false);
+  const [isAssetPreviewOpen, setIsAssetPreviewOpen] = useState(false);
+
+  // Get the selected area ID for asset management (single selection only)
+  const selectedAreaId = useMemo(() => {
+    if (selectedIds.length === 1) {
+      const area = areas.find((a) => a.id === selectedIds[0]);
+      if (area) return area.id;
+    }
+    return null;
+  }, [selectedIds, areas]);
+
   // Hydrate from IndexedDB on mount
   useEffect(() => {
     if (hydrationAttempted.current) return;
@@ -91,6 +107,7 @@ function App() {
             height: 30,
             gridSize: 1.0,
             unit: 'meters',
+            description: '',
           });
         }
       } catch (error) {
@@ -101,6 +118,7 @@ function App() {
           height: 30,
           gridSize: 1.0,
           unit: 'meters',
+          description: '',
         });
       } finally {
         setIsHydrating(false);
@@ -290,9 +308,6 @@ function App() {
           <div className="border-t border-gray-700">
             <AreaList />
           </div>
-          <div className="border-t border-gray-700">
-            <AssetLibrary onImportClick={handleAssetImportOpen} />
-          </div>
           <AreaSummary />
         </aside>
 
@@ -304,15 +319,24 @@ function App() {
               onAreaCreate={handleAreaCreate}
             />
           ) : (
-            <Viewer3D />
+            <Viewer3D onAreaCreate={handleAreaCreate} />
           )}
         </main>
 
         {/* Sidebar - Right (Properties) */}
         <aside className="w-64 bg-gray-800 border-l border-gray-700 overflow-y-auto flex-shrink-0">
           <AreaProperties />
+          <div className="border-t border-gray-700">
+            <AIDescriptionPanel />
+          </div>
         </aside>
       </div>
+
+      {/* Asset Toolbar */}
+      <AreaAssetToolbar
+        onEditClick={() => setIsAssetManagerOpen(true)}
+        onPreviewClick={() => setIsAssetPreviewOpen(true)}
+      />
 
       {/* Status Bar */}
       <footer className="flex items-center justify-between px-4 py-2 bg-gray-800 border-t border-gray-700 text-sm">
@@ -332,6 +356,20 @@ function App() {
         isOpen={isImportDialogOpen}
         onClose={handleImportDialogClose}
         initialPosition={importPosition}
+      />
+
+      {/* Area Asset Manager Dialog */}
+      <AreaAssetManager
+        isOpen={isAssetManagerOpen}
+        onClose={() => setIsAssetManagerOpen(false)}
+        areaId={selectedAreaId}
+      />
+
+      {/* Asset Preview Slideshow */}
+      <AssetPreview
+        isOpen={isAssetPreviewOpen}
+        onClose={() => setIsAssetPreviewOpen(false)}
+        areaId={selectedAreaId}
       />
 
       {/* Tooltip for 3D hover */}

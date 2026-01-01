@@ -21,7 +21,13 @@
       "Bash(powershell -Command:*)",
       "Bash(del \"D:\\\\potontos\\\\Floorplan-assembly\\\\src\\\\App.tsx.bak\")",
       "Bash(node -e:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(timeout /t 3 /nobreak)",
+      "Bash(npm run dev:*)",
+      "mcp__MCP_DOCKER__browser_navigate",
+      "Bash(cd:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd rotation, descriptions, and per-area asset management\n\nFeatures:\n- Add rotation field to areas \\(0°, 90°, 180°, 270°\\) for doors/windows\n- Add R key shortcut in 3D to rotate selected areas by 90°\n- Add description fields to areas and lot for AI image generation\n- Add AI Description Generator panel with text/JSON output formats\n- Restructure assets to be per-area instead of global project-level\n- Add AreaAssetToolbar with Edit/Preview buttons\n- Add AreaAssetManager dialog for managing area assets\n- Add AssetPreview slideshow with \"View All\" mode\n- Remove asset rendering from 2D canvas and 3D viewer\n\nTechnical:\n- Add baseHeight support for elevated elements \\(windows\\)\n- Add Shift+drag for horizontal movement in 3D\n- Add Ctrl+Shift+drag for vertical movement in 3D\n- Smooth 3D dragging using direct mesh manipulation\n- Backward compatible with existing projects \\(assets ?? []\\)\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }

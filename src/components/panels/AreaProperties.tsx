@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useFloorplanStore } from '@store/index';
 import type { AreaType } from '@models/types';
+import { AREA_TYPE_PROPERTIES } from '@models/types';
 import {
   metersToDisplayUnit,
   displayUnitToMeters,
@@ -8,14 +9,24 @@ import {
   getUnitAbbreviation,
 } from '@lib/coordinates';
 
-const AREA_TYPES: { id: AreaType; label: string }[] = [
-  { id: 'house', label: 'House' },
-  { id: 'pool', label: 'Pool' },
-  { id: 'court', label: 'Court' },
-  { id: 'lounge', label: 'Lounge' },
-  { id: 'garden', label: 'Garden' },
-  { id: 'parking', label: 'Parking' },
-  { id: 'custom', label: 'Custom' },
+const AREA_TYPES: { id: AreaType; label: string; group: string }[] = [
+  // Spaces
+  { id: 'house', label: 'House', group: 'Spaces' },
+  { id: 'lounge', label: 'Lounge', group: 'Spaces' },
+  { id: 'garden', label: 'Garden', group: 'Spaces' },
+  { id: 'parking', label: 'Parking', group: 'Spaces' },
+  { id: 'court', label: 'Court', group: 'Spaces' },
+  { id: 'pool', label: 'Pool', group: 'Spaces' },
+  // Structural
+  { id: 'wall', label: 'Wall', group: 'Structural' },
+  { id: 'column', label: 'Column', group: 'Structural' },
+  { id: 'stairs', label: 'Stairs', group: 'Structural' },
+  { id: 'void', label: 'Void/Opening', group: 'Structural' },
+  // Openings
+  { id: 'door', label: 'Door', group: 'Openings' },
+  { id: 'window', label: 'Window', group: 'Openings' },
+  // Other
+  { id: 'custom', label: 'Custom', group: 'Other' },
 ];
 
 export function AreaProperties() {
@@ -85,10 +96,14 @@ export function AreaProperties() {
               <option value="" disabled>
                 Mixed
               </option>
-              {AREA_TYPES.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
-                </option>
+              {['Spaces', 'Structural', 'Openings', 'Other'].map((group) => (
+                <optgroup key={group} label={group}>
+                  {AREA_TYPES.filter((t) => t.group === group).map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>
@@ -149,10 +164,14 @@ export function AreaProperties() {
             onChange={(e) => handleUpdate('type', e.target.value)}
             className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500"
           >
-            {AREA_TYPES.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
-              </option>
+            {['Spaces', 'Structural', 'Openings', 'Other'].map((group) => (
+              <optgroup key={group} label={group}>
+                {AREA_TYPES.filter((t) => t.group === group).map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
@@ -189,45 +208,109 @@ export function AreaProperties() {
               type="number"
               value={parseFloat(metersToDisplayUnit(area.width, displayUnit).toFixed(2))}
               onChange={(e) => {
-                const minValue = displayUnit === 'feet' ? 1.64 : 0.5; // ~0.5m in feet
-                handleDimensionUpdate('width', Math.max(minValue, parseFloat(e.target.value) || minValue));
+                const typeProps = AREA_TYPE_PROPERTIES[area.type];
+                const minValue = typeProps.allowZeroWidth ? 0 : (displayUnit === 'feet' ? 1.64 : 0.5);
+                const val = parseFloat(e.target.value);
+                handleDimensionUpdate('width', isNaN(val) ? minValue : Math.max(minValue, val));
               }}
-              min={displayUnit === 'feet' ? 1.64 : 0.5}
-              step={displayUnit === 'feet' ? 1 : 0.5}
+              min={AREA_TYPE_PROPERTIES[area.type].allowZeroWidth ? 0 : (displayUnit === 'feet' ? 1.64 : 0.5)}
+              step={displayUnit === 'feet' ? 0.5 : 0.1}
               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500"
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Height ({unitAbbr})</label>
+            <label className="block text-xs text-gray-400 mb-1">Depth ({unitAbbr})</label>
             <input
               type="number"
               value={parseFloat(metersToDisplayUnit(area.height, displayUnit).toFixed(2))}
               onChange={(e) => {
-                const minValue = displayUnit === 'feet' ? 1.64 : 0.5;
-                handleDimensionUpdate('height', Math.max(minValue, parseFloat(e.target.value) || minValue));
+                const typeProps = AREA_TYPE_PROPERTIES[area.type];
+                const minValue = typeProps.allowZeroHeight ? 0 : (displayUnit === 'feet' ? 1.64 : 0.5);
+                const val = parseFloat(e.target.value);
+                handleDimensionUpdate('height', isNaN(val) ? minValue : Math.max(minValue, val));
               }}
-              min={displayUnit === 'feet' ? 1.64 : 0.5}
-              step={displayUnit === 'feet' ? 1 : 0.5}
+              min={AREA_TYPE_PROPERTIES[area.type].allowZeroHeight ? 0 : (displayUnit === 'feet' ? 1.64 : 0.5)}
+              step={displayUnit === 'feet' ? 0.5 : 0.1}
               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500"
             />
           </div>
         </div>
 
-        {/* Elevation */}
+        {/* Elevation (height of box) */}
         <div>
           <label className="block text-xs text-gray-400 mb-1">
-            Elevation ({unitAbbr})
+            Height ({unitAbbr})
+            <span className="text-gray-500 ml-1 font-normal">
+              (box height)
+            </span>
           </label>
           <input
             type="number"
             value={parseFloat(metersToDisplayUnit(area.elevation, displayUnit).toFixed(2))}
             onChange={(e) => {
-              const minValue = displayUnit === 'feet' ? 1.64 : 0.5;
-              handleDimensionUpdate('elevation', Math.max(minValue, parseFloat(e.target.value) || minValue));
+              const value = parseFloat(e.target.value);
+              handleDimensionUpdate('elevation', isNaN(value) ? 0 : value);
             }}
-            min={displayUnit === 'feet' ? 1.64 : 0.5}
             step={displayUnit === 'feet' ? 1 : 0.5}
             className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+          />
+        </div>
+
+        {/* Base Height (vertical position) */}
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">
+            Base Height ({unitAbbr})
+            <span className="text-gray-500 ml-1 font-normal">
+              (height from ground)
+            </span>
+          </label>
+          <input
+            type="number"
+            value={parseFloat(metersToDisplayUnit(area.baseHeight ?? 0, displayUnit).toFixed(2))}
+            onChange={(e) => {
+              const value = parseFloat(e.target.value);
+              handleDimensionUpdate('baseHeight', isNaN(value) ? 0 : Math.max(0, value));
+            }}
+            min={0}
+            step={displayUnit === 'feet' ? 0.5 : 0.1}
+            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+          />
+        </div>
+
+        {/* Rotation */}
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">
+            Rotation
+            <span className="text-gray-500 ml-1 font-normal">
+              (press R in 3D to rotate 90°)
+            </span>
+          </label>
+          <select
+            value={area.rotation ?? 0}
+            onChange={(e) => handleUpdate('rotation', parseInt(e.target.value))}
+            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+          >
+            <option value={0}>0° (North)</option>
+            <option value={90}>90° (East)</option>
+            <option value={180}>180° (South)</option>
+            <option value={270}>270° (West)</option>
+          </select>
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">
+            Description
+            <span className="text-gray-500 ml-1 font-normal">
+              (for AI rendering)
+            </span>
+          </label>
+          <textarea
+            value={area.description ?? ''}
+            onChange={(e) => handleUpdate('description', e.target.value)}
+            placeholder="e.g., Modern white walls, large glass windows, wooden deck..."
+            rows={3}
+            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500 resize-none"
           />
         </div>
 
