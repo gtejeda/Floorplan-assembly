@@ -1,213 +1,356 @@
-import type { Project, Area, DisplayUnit } from '@models/types';
-import { metersToDisplayUnit, getUnitAbbreviation } from './coordinates';
+/**
+ * AI-Ready Project Description Generator
+ *
+ * Generates detailed textual descriptions of Micro Villas investment projects
+ * suitable for multi-modal AI systems to generate visual concepts and marketing materials.
+ *
+ * Per spec FR-047: Generate comprehensive description with all project details
+ * Per spec FR-048: Description includes location, dimensions, amenities, ownership structure
+ * Per spec SC-008: Generate description in <3 seconds
+ */
+
+import type {
+  InvestmentProject,
+  LandParcel,
+  SubdivisionScenario,
+  Amenity,
+  StorageType
+} from '@/models/types';
+import { AMENITIES_CATALOG } from '@/data/amenities';
 
 /**
- * Generates an optimized description of the project for AI image generation.
- * The description includes spatial relationships, dimensions, and user-provided details.
+ * Main function to generate AI-ready description from investment project data
+ *
+ * @param project - Complete investment project with all data
+ * @returns Structured text description suitable for AI consumption
  */
-export function generateAIDescription(
-  project: Project,
-  displayUnit: DisplayUnit,
-  options: {
-    includeCoordinates?: boolean;
-    includeColors?: boolean;
-    viewAngle?: 'aerial' | 'eye-level' | 'perspective';
-  } = {}
-): string {
-  const {
-    includeCoordinates = false,
-    includeColors = false,
-    viewAngle = 'perspective',
-  } = options;
+export function generateAIDescription(project: InvestmentProject): string {
+  const startTime = performance.now();
 
-  const unitAbbr = getUnitAbbreviation(displayUnit);
-  const lot = project.lot;
-  const areas = project.areas.filter((a) => a.visible);
-
-  // Format dimensions helper
-  const formatDim = (meters: number): string => {
-    const val = metersToDisplayUnit(meters, displayUnit);
-    return `${val.toFixed(1)}${unitAbbr}`;
-  };
-
-  // Group areas by type
-  const areasByType = areas.reduce((acc, area) => {
-    const type = area.type;
-    if (!acc[type]) acc[type] = [];
-    acc[type].push(area);
-    return acc;
-  }, {} as Record<string, Area[]>);
-
-  // Build the description
-  const parts: string[] = [];
-
-  // 1. View angle instruction
-  const viewInstructions: Record<string, string> = {
-    'aerial': 'Aerial top-down view of',
-    'eye-level': 'Eye-level architectural photograph of',
-    'perspective': 'Architectural perspective rendering of',
-  };
-  parts.push(viewInstructions[viewAngle]);
-
-  // 2. Project overview with lot dimensions
-  const lotArea = lot.width * lot.height;
-  parts.push(
-    `a property measuring ${formatDim(lot.width)} wide by ${formatDim(lot.height)} deep (${formatDim(lotArea)} total area).`
+  // Get the selected subdivision scenario
+  const selectedScenario = project.subdivisionScenarios.find(
+    s => s.id === project.selectedScenarioId
   );
 
-  // 3. Project description (user-provided)
-  if (lot.description?.trim()) {
-    parts.push(lot.description.trim() + '.');
+  if (!selectedScenario) {
+    throw new Error('No subdivision scenario selected. Please select a scenario first.');
   }
 
-  // 4. Main structures (houses, buildings)
-  const mainStructures = areasByType['house'] || [];
-  if (mainStructures.length > 0) {
-    const structureDescriptions = mainStructures.map((area) => {
-      let desc = `${area.name} (${formatDim(area.width)} x ${formatDim(area.height)}, ${formatDim(area.elevation)} tall)`;
-      if (area.description?.trim()) {
-        desc += `: ${area.description.trim()}`;
-      }
-      return desc;
-    });
-    parts.push(`Main structures: ${structureDescriptions.join('; ')}.`);
+  // Build description sections
+  const sections: string[] = [];
+
+  // Header
+  sections.push(generateHeader(project));
+
+  // Location details
+  sections.push(generateLocationSection(project.landParcel));
+
+  // Land dimensions
+  sections.push(generateLandDimensionsSection(project.landParcel));
+
+  // Subdivision configuration
+  sections.push(generateSubdivisionSection(selectedScenario));
+
+  // Social club details
+  sections.push(generateSocialClubSection(
+    selectedScenario,
+    project.socialClub.selectedAmenities
+  ));
+
+  // Common area ownership
+  sections.push(generateCommonAreaOwnershipSection(selectedScenario));
+
+  // Storage arrangement
+  sections.push(generateStorageArrangementSection(project.socialClub.storageType));
+
+  // Financial overview (optional but useful for AI context)
+  sections.push(generateFinancialOverviewSection(project));
+
+  // Performance check
+  const endTime = performance.now();
+  const duration = endTime - startTime;
+
+  if (duration > 3000) {
+    console.warn(`AI description generation took ${duration.toFixed(0)}ms (exceeds 3s requirement)`);
   }
 
-  // 5. Outdoor spaces (pool, garden, court, lounge, parking)
-  const outdoorTypes = ['pool', 'garden', 'court', 'lounge', 'parking'];
-  const outdoorSpaces = outdoorTypes.flatMap((type) => areasByType[type] || []);
-  if (outdoorSpaces.length > 0) {
-    const outdoorDescriptions = outdoorSpaces.map((area) => {
-      let desc = `${area.name} (${area.type}, ${formatDim(area.width)} x ${formatDim(area.height)})`;
-      if (area.description?.trim()) {
-        desc += `: ${area.description.trim()}`;
-      }
-      return desc;
-    });
-    parts.push(`Outdoor spaces: ${outdoorDescriptions.join('; ')}.`);
-  }
-
-  // 6. Structural elements (walls, columns, stairs)
-  const structuralTypes = ['wall', 'column', 'stairs'];
-  const structuralElements = structuralTypes.flatMap((type) => areasByType[type] || []);
-  if (structuralElements.length > 0) {
-    const structuralDescriptions = structuralElements.map((area) => {
-      let desc = `${area.name} (${area.type})`;
-      if (area.description?.trim()) {
-        desc += `: ${area.description.trim()}`;
-      }
-      return desc;
-    });
-    parts.push(`Structural elements: ${structuralDescriptions.join('; ')}.`);
-  }
-
-  // 7. Openings (doors, windows)
-  const openingTypes = ['door', 'window'];
-  const openings = openingTypes.flatMap((type) => areasByType[type] || []);
-  if (openings.length > 0) {
-    const windowCount = (areasByType['window'] || []).length;
-    const doorCount = (areasByType['door'] || []).length;
-
-    const openingParts: string[] = [];
-    if (windowCount > 0) {
-      const windowDescriptions = (areasByType['window'] || [])
-        .filter((w) => w.description?.trim())
-        .map((w) => w.description!.trim());
-      if (windowDescriptions.length > 0) {
-        openingParts.push(`${windowCount} window(s): ${windowDescriptions.join(', ')}`);
-      } else {
-        openingParts.push(`${windowCount} window(s)`);
-      }
-    }
-    if (doorCount > 0) {
-      const doorDescriptions = (areasByType['door'] || [])
-        .filter((d) => d.description?.trim())
-        .map((d) => d.description!.trim());
-      if (doorDescriptions.length > 0) {
-        openingParts.push(`${doorCount} door(s): ${doorDescriptions.join(', ')}`);
-      } else {
-        openingParts.push(`${doorCount} door(s)`);
-      }
-    }
-    parts.push(`Openings: ${openingParts.join('; ')}.`);
-  }
-
-  // 8. Voids and custom areas
-  const voids = areasByType['void'] || [];
-  const customs = areasByType['custom'] || [];
-  if (voids.length > 0 || customs.length > 0) {
-    const otherDescriptions = [...voids, ...customs].map((area) => {
-      let desc = area.name;
-      if (area.description?.trim()) {
-        desc += `: ${area.description.trim()}`;
-      }
-      return desc;
-    });
-    parts.push(`Other features: ${otherDescriptions.join('; ')}.`);
-  }
-
-  // 9. Optional: Include coordinates for spatial reference
-  if (includeCoordinates && areas.length > 0) {
-    const coordDescriptions = areas.slice(0, 10).map((area) => {
-      return `${area.name} at position (${formatDim(area.x)}, ${formatDim(area.y)})`;
-    });
-    parts.push(`Spatial layout: ${coordDescriptions.join('; ')}.`);
-  }
-
-  // 10. Optional: Include colors
-  if (includeColors) {
-    const coloredAreas = areas.filter((a) => a.color && a.color !== '#000000');
-    if (coloredAreas.length > 0) {
-      const colorDescriptions = coloredAreas.slice(0, 5).map((area) => {
-        return `${area.name} in ${area.color}`;
-      });
-      parts.push(`Color scheme: ${colorDescriptions.join(', ')}.`);
-    }
-  }
-
-  // 11. Closing instruction for AI
-  parts.push('High quality architectural visualization, professional lighting, detailed materials and textures.');
-
-  return parts.join(' ');
+  return sections.join('\n\n');
 }
 
 /**
- * Generates a compact JSON representation of the project for structured AI input.
+ * Generate project header with basic identification
  */
-export function generateProjectJSON(
-  project: Project,
-  displayUnit: DisplayUnit
+function generateHeader(project: InvestmentProject): string {
+  return `# ${project.name || 'Micro Villas Investment Project'}
+
+**Project Type**: Micro Villas Residential Development
+**Version**: ${project.version}
+**Created**: ${new Date(project.created).toLocaleDateString()}
+**Last Modified**: ${new Date(project.modified).toLocaleDateString()}
+
+---`;
+}
+
+/**
+ * Generate location section with province, landmarks, and nearby attractions
+ * T104: Location section implementation
+ */
+function generateLocationSection(landParcel: LandParcel): string {
+  const lines: string[] = [
+    '## Location',
+    '',
+    `**Province**: ${landParcel.province}, Dominican Republic`,
+  ];
+
+  if (landParcel.landmarks && landParcel.landmarks.length > 0) {
+    lines.push('');
+    lines.push('**Nearby Landmarks and Attractions**:');
+    landParcel.landmarks.forEach(landmark => {
+      lines.push(`- ${landmark}`);
+    });
+  }
+
+  // Add urbanization status
+  lines.push('');
+  lines.push(`**Urbanization Status**: ${landParcel.isUrbanized ? 'Fully urbanized with utilities available' : 'Raw land requiring urbanization'}`);
+
+  return lines.join('\n');
+}
+
+/**
+ * Generate land dimensions section with total area and measurements
+ * T105: Land dimensions section implementation
+ */
+function generateLandDimensionsSection(landParcel: LandParcel): string {
+  const totalAreaSqm = landParcel.totalArea;
+  const totalAreaSqft = (totalAreaSqm * 10.7639).toFixed(2);
+
+  return `## Land Dimensions
+
+**Total Area**: ${totalAreaSqm.toFixed(2)} sqm (${totalAreaSqft} sqft)
+**Dimensions**: ${landParcel.width.toFixed(2)}m × ${landParcel.height.toFixed(2)}m
+**Shape**: Rectangular parcel`;
+}
+
+/**
+ * Generate subdivision configuration section
+ * T106: Subdivision configuration section implementation
+ */
+function generateSubdivisionSection(
+  scenario: SubdivisionScenario
 ): string {
-  const formatDim = (meters: number) => {
-    const val = metersToDisplayUnit(meters, displayUnit);
-    return parseFloat(val.toFixed(2));
+  const lines: string[] = [
+    '## Subdivision Configuration',
+    '',
+    `**Total Lots**: ${scenario.totalLots} Micro Villa lots`,
+    `**Average Lot Size**: ${scenario.averageLotSize.toFixed(2)} sqm`,
+    `**Minimum Lot Size**: ${Math.min(...scenario.lots.map(l => l.area)).toFixed(2)} sqm`,
+    `**Maximum Lot Size**: ${Math.max(...scenario.lots.map(l => l.area)).toFixed(2)} sqm`,
+    `**Social Club Allocation**: ${scenario.socialClubPercentage}% of total land`,
+    `**Layout Efficiency**: ${scenario.efficiency.toFixed(1)}%`,
+    '',
+    '**Lot Distribution**:',
+  ];
+
+  // Group lots by quadrant
+  const lotsByQuadrant = scenario.lots.reduce((acc, lot) => {
+    if (!acc[lot.quadrant]) acc[lot.quadrant] = [];
+    acc[lot.quadrant].push(lot);
+    return acc;
+  }, {} as Record<string, typeof scenario.lots>);
+
+  // List lots by quadrant
+  Object.entries(lotsByQuadrant).forEach(([quadrant, lots]) => {
+    lines.push(`- ${quadrant.charAt(0).toUpperCase() + quadrant.slice(1)} Quadrant: ${lots.length} lots`);
+    lots.forEach(lot => {
+      lines.push(`  - Lot ${lot.lotNumber}: ${lot.width.toFixed(2)}m × ${lot.height.toFixed(2)}m (${lot.area.toFixed(2)} sqm)`);
+    });
+  });
+
+  return lines.join('\n');
+}
+
+/**
+ * Generate social club details section with amenities
+ * T107: Social club details section implementation
+ */
+function generateSocialClubSection(
+  scenario: SubdivisionScenario,
+  selectedAmenityIds: string[]
+): string {
+  const socialClub = scenario.socialClub;
+
+  const lines: string[] = [
+    '## Social Club Area',
+    '',
+    `**Position**: Centrally located within the development`,
+    `**Dimensions**: ${socialClub.width.toFixed(2)}m × ${socialClub.height.toFixed(2)}m`,
+    `**Total Area**: ${socialClub.area.toFixed(2)} sqm`,
+    `**Coordinates**: X: ${socialClub.x.toFixed(2)}m, Y: ${socialClub.y.toFixed(2)}m (from top-left)`,
+    '',
+  ];
+
+  // Add amenities list
+  if (selectedAmenityIds.length > 0) {
+    lines.push('**Selected Amenities**:');
+    lines.push('');
+
+    // Group amenities by category
+    const amenitiesByCategory = new Map<string, Amenity[]>();
+
+    selectedAmenityIds.forEach(amenityId => {
+      const amenity = AMENITIES_CATALOG.find(a => a.id === amenityId);
+      if (amenity) {
+        const category = amenity.category;
+        if (!amenitiesByCategory.has(category)) {
+          amenitiesByCategory.set(category, []);
+        }
+        amenitiesByCategory.get(category)!.push(amenity);
+      }
+    });
+
+    // Output amenities by category
+    const categoryNames: Record<string, string> = {
+      aquatic: 'Aquatic Features',
+      dining: 'Dining & Entertainment',
+      recreation: 'Recreation & Sports',
+      furniture: 'Furniture & Seating',
+      utilities: 'Utilities & Services',
+    };
+
+    amenitiesByCategory.forEach((amenities, category) => {
+      lines.push(`### ${categoryNames[category] || category}`);
+      amenities.forEach(amenity => {
+        lines.push(`- **${amenity.name}**: ${amenity.description}`);
+      });
+      lines.push('');
+    });
+  } else {
+    lines.push('**Selected Amenities**: None selected yet');
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Generate common area ownership section explaining percentage calculations
+ * T108: Common area ownership section implementation
+ */
+function generateCommonAreaOwnershipSection(scenario: SubdivisionScenario): string {
+  const lines: string[] = [
+    '## Common Area Ownership Structure',
+    '',
+    'Each Micro Villa lot includes proportional ownership of the social club common area.',
+    'Ownership percentages are calculated based on lot size relative to total residential area.',
+    '',
+    '**Ownership Breakdown**:',
+    '',
+  ];
+
+  // Sort lots by lot number
+  const sortedLots = [...scenario.lots].sort((a, b) => a.lotNumber - b.lotNumber);
+
+  sortedLots.forEach(lot => {
+    lines.push(`- **Lot ${lot.lotNumber}** (${lot.area.toFixed(2)} sqm): ${lot.commonAreaPercentage.toFixed(2)}% common area ownership`);
+  });
+
+  lines.push('');
+  lines.push('**Note**: Ownership percentages sum to 100%, ensuring all owners have proportional rights to the social club facilities.');
+
+  return lines.join('\n');
+}
+
+/**
+ * Generate storage arrangement section
+ * T109: Storage arrangement section implementation
+ */
+function generateStorageArrangementSection(storageType: StorageType): string {
+  const descriptions: Record<StorageType, string> = {
+    dedicated: 'Each Micro Villa includes a dedicated storage room within the residential unit. Storage rooms are climate-controlled and secure, providing convenient access for owners to store personal belongings, tools, and seasonal items.',
+    patio: 'Each Micro Villa features patio-integrated storage solutions. Storage is built into the outdoor living space, typically as lockable cabinets or storage benches that blend seamlessly with the patio design while maximizing functionality.',
   };
 
-  const unitAbbr = getUnitAbbreviation(displayUnit);
+  return `## Storage Arrangements
 
-  const output = {
-    unit: unitAbbr,
-    lot: {
-      width: formatDim(project.lot.width),
-      height: formatDim(project.lot.height),
-      description: project.lot.description || undefined,
-    },
-    areas: project.areas
-      .filter((a) => a.visible)
-      .map((area) => ({
-        name: area.name,
-        type: area.type,
-        position: { x: formatDim(area.x), y: formatDim(area.y) },
-        size: {
-          width: formatDim(area.width),
-          depth: formatDim(area.height),
-          height: formatDim(area.elevation),
-        },
-        baseHeight: area.baseHeight > 0 ? formatDim(area.baseHeight) : undefined,
-        rotation: area.rotation || undefined,
-        description: area.description || undefined,
-      })),
-  };
+**Storage Type**: ${storageType === 'dedicated' ? 'Dedicated Storage Room' : 'Patio-Integrated Storage'}
 
-  return JSON.stringify(output, null, 2);
+${descriptions[storageType]}`;
+}
+
+/**
+ * Generate financial overview section (optional but useful for context)
+ */
+function generateFinancialOverviewSection(project: InvestmentProject): string {
+  const financial = project.financialAnalysis;
+
+  if (!financial) {
+    return `## Financial Overview
+
+*Financial analysis not yet completed.*`;
+  }
+
+  const lines: string[] = [
+    '## Financial Overview',
+    '',
+    `**Total Project Cost**: ${formatCurrency(financial.totalProjectCost, financial.currency)}`,
+    `**Cost Per Square Meter**: ${formatCurrency(financial.costPerSqm, financial.currency)}`,
+    `**Base Cost Per Lot**: ${formatCurrency(financial.baseCostPerLot, financial.currency)}`,
+  ];
+
+  if (financial.pricingScenarios && financial.pricingScenarios.length > 0) {
+    lines.push('');
+    lines.push('**Pricing Scenarios**:');
+    financial.pricingScenarios.forEach(scenario => {
+      lines.push(`- ${scenario.profitMarginPercentage}% profit margin: ${formatCurrency(scenario.lotSalePrice, financial.currency)} per lot (ROI: ${scenario.returnOnInvestment.toFixed(1)}%)`);
+    });
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Format currency values with proper symbols
+ */
+function formatCurrency(amount: number, currency: 'USD' | 'DOP'): string {
+  const symbol = currency === 'USD' ? '$' : 'RD$';
+  return `${symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/**
+ * Copy text to clipboard with fallback for older browsers
+ *
+ * @param text - Text to copy to clipboard
+ * @returns Promise<boolean> - true if successful, false otherwise
+ */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    // Modern Clipboard API (preferred)
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+
+    // Fallback for older browsers
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      return successful;
+    } catch (err) {
+      document.body.removeChild(textArea);
+      return false;
+    }
+  } catch (err) {
+    console.error('Failed to copy to clipboard:', err);
+    return false;
+  }
 }

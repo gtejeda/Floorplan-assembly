@@ -108,9 +108,11 @@ export function AreaCreateDialog({
       rotation,
       color,
       opacity: 0.7,
+      description: '',
       locked: false,
       visible: true,
       zIndex: 0,
+      assets: [],
     });
 
     // Select the newly created area

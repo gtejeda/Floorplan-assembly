@@ -1,6 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useFloorplanStore } from '@store/index';
-import type { Asset } from '@models/types';
 
 interface AssetPreviewProps {
   isOpen: boolean;

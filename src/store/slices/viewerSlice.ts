@@ -3,8 +3,6 @@ import type {
   ViewMode,
   Tool,
   Canvas2DState,
-  Camera3DState,
-  Vector3,
   DisplayUnit,
 } from '@models/types';
 import { clamp } from '@lib/coordinates';
@@ -21,9 +19,6 @@ export interface ViewerSlice {
 
   // Canvas 2D state
   canvas2d: Canvas2DState;
-
-  // Camera 3D state
-  camera3d: Camera3DState;
 
   // UI state
   showGrid: boolean;
@@ -48,10 +43,6 @@ export interface ViewerSlice {
   setPan: (x: number, y: number) => void;
   resetView: () => void;
 
-  // Camera 3D actions
-  setCameraPosition: (position: Vector3) => void;
-  setCameraTarget: (target: Vector3) => void;
-
   // UI actions
   toggleGrid: () => void;
   toggleLabels: () => void;
@@ -66,12 +57,6 @@ const defaultCanvas2d: Canvas2DState = {
   panY: 0,
 };
 
-const defaultCamera3d: Camera3DState = {
-  position: { x: 0, y: 50, z: -50 },
-  target: { x: 0, y: 0, z: 0 },
-  fov: 45,
-};
-
 export const createViewerSlice: StateCreator<
   ViewerSlice,
   [],
@@ -83,7 +68,6 @@ export const createViewerSlice: StateCreator<
   hoveredId: null,
   activeTool: 'select',
   canvas2d: defaultCanvas2d,
-  camera3d: defaultCamera3d,
   showGrid: true,
   showLabels: true,
   showTooltips: true,
@@ -140,23 +124,6 @@ export const createViewerSlice: StateCreator<
     set({
       canvas2d: defaultCanvas2d,
     }),
-
-  // Camera 3D actions
-  setCameraPosition: (position) =>
-    set((state) => ({
-      camera3d: {
-        ...state.camera3d,
-        position,
-      },
-    })),
-
-  setCameraTarget: (target) =>
-    set((state) => ({
-      camera3d: {
-        ...state.camera3d,
-        target,
-      },
-    })),
 
   // UI actions
   toggleGrid: () =>

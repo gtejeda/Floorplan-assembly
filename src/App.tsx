@@ -2,22 +2,30 @@ import { useEffect, useCallback, useState, useRef, useMemo } from 'react';
 import { useFloorplanStore, useUndo, useRedo } from '@store/index';
 import { getLastProject } from '@lib/storage';
 import { Toolbar } from '@components/ui/Toolbar';
-import { ViewToggle } from '@components/ui/ViewToggle';
 import { StatusBar } from '@components/ui/StatusBar';
 import { LotPanel } from '@components/panels/LotPanel';
 import { AreaList } from '@components/panels/AreaList';
 import { AreaProperties } from '@components/panels/AreaProperties';
 import { AreaSummary } from '@components/ui/AreaSummary';
 import { Canvas2D } from '@components/canvas/Canvas2D';
-import { Viewer3D } from '@components/viewer/Viewer3D';
 import { Coordinates } from '@components/ui/Coordinates';
 import { Tooltip } from '@components/ui/Tooltip';
 import { AreaCreateDialog } from '@components/dialogs/AreaCreateDialog';
 import { AssetImportDialog } from '@components/dialogs/AssetImportDialog';
 import { AreaAssetManager } from '@components/dialogs/AreaAssetManager';
 import { AssetPreview } from '@components/dialogs/AssetPreview';
-import { AIDescriptionPanel } from '@components/panels/AIDescriptionPanel';
+import { AIDescriptionPanel } from '@components/investment/AIDescriptionPanel';
 import { AreaAssetToolbar } from '@components/ui/AreaAssetToolbar';
+import { ClearProjectButton } from '@components/ui/ClearProjectButton';
+import { LandConfigPanel } from '@components/investment/LandConfigPanel';
+import { SubdivisionViewer } from '@components/investment/SubdivisionViewer';
+import { ScenarioList } from '@components/investment/ScenarioList';
+import { LotDetailsPanel } from '@components/investment/LotDetailsPanel';
+import { SocialClubDesigner } from '@components/investment/SocialClubDesigner';
+import { FinancialAnalysis } from '@components/investment/FinancialAnalysis';
+import { PricingScenarios } from '@components/investment/PricingScenarios';
+import { AutoSaveIndicator } from '@components/ui/AutoSaveIndicator';
+import { ExportImport } from '@components/investment/ExportImport';
 
 // Keyboard shortcuts data for help dialog
 const KEYBOARD_SHORTCUTS = [
@@ -28,7 +36,6 @@ const KEYBOARD_SHORTCUTS = [
   { keys: 'Ctrl+D', description: 'Duplicate selected' },
   { keys: 'Delete / Backspace', description: 'Delete selected' },
   { keys: 'Escape', description: 'Clear selection / Close dialog' },
-  { keys: 'Tab', description: 'Toggle 2D/3D view' },
   { keys: 'G', description: 'Toggle grid' },
   { keys: 'I', description: 'Open import dialog' },
   { keys: '?', description: 'Show keyboard shortcuts' },
@@ -36,11 +43,9 @@ const KEYBOARD_SHORTCUTS = [
 
 function App() {
   const project = useFloorplanStore((state) => state.project);
-  const activeView = useFloorplanStore((state) => state.activeView);
   const activeTool = useFloorplanStore((state) => state.activeTool);
   const createProject = useFloorplanStore((state) => state.createProject);
   const loadProject = useFloorplanStore((state) => state.loadProject);
-  const setActiveView = useFloorplanStore((state) => state.setActiveView);
   const toggleGrid = useFloorplanStore((state) => state.toggleGrid);
   const clearSelection = useFloorplanStore((state) => state.clearSelection);
   const deleteArea = useFloorplanStore((state) => state.deleteArea);
@@ -51,6 +56,7 @@ function App() {
   const projectAreas = useFloorplanStore((state) => state.project?.areas);
   const projectAssets = useFloorplanStore((state) => state.project?.assets);
   const saveProject = useFloorplanStore((state) => state.saveProject);
+  const lastSaved = useFloorplanStore((state) => state.lastSaved);
 
   // Use stable empty array references to prevent infinite re-renders
   const areas = useMemo(() => projectAreas ?? [], [projectAreas]);
@@ -80,6 +86,9 @@ function App() {
   // Asset manager and preview dialog state
   const [isAssetManagerOpen, setIsAssetManagerOpen] = useState(false);
   const [isAssetPreviewOpen, setIsAssetPreviewOpen] = useState(false);
+
+  // View mode state (floorplan or investment)
+  const [viewMode, setViewMode] = useState<'floorplan' | 'investment'>('investment');
 
   // Get the selected area ID for asset management (single selection only)
   const selectedAreaId = useMemo(() => {
@@ -177,12 +186,6 @@ function App() {
         return;
       }
 
-      // Ignore WASD keys when in 3D view (used for camera movement)
-      const wasdKeys = ['w', 'a', 's', 'd'];
-      if (activeView === '3d' && wasdKeys.includes(e.key.toLowerCase())) {
-        return;
-      }
-
       const key = e.key.toLowerCase();
       const ctrl = e.ctrlKey || e.metaKey;
       const shift = e.shiftKey;
@@ -229,9 +232,6 @@ function App() {
           }
         });
         clearSelection();
-      } else if (key === 'tab') {
-        e.preventDefault();
-        setActiveView(activeView === '2d' ? '3d' : '2d');
       } else if (key === 'g') {
         toggleGrid();
       } else if (key === 'i' && !ctrl) {
@@ -256,8 +256,6 @@ function App() {
       clearSelection,
       deleteArea,
       deleteAsset,
-      setActiveView,
-      activeView,
       toggleGrid,
       isCreateDialogOpen,
       isImportDialogOpen,
@@ -294,7 +292,10 @@ function App() {
             {project?.name ?? 'Floorplan Assembly'}
           </h1>
         </div>
-        <ViewToggle />
+        <div className="flex items-center gap-3">
+          <AutoSaveIndicator lastSaved={lastSaved} />
+          <ClearProjectButton />
+        </div>
       </header>
 
       {/* Toolbar */}
@@ -302,34 +303,96 @@ function App() {
 
       {/* Main content area */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar - Left */}
-        <aside className="w-64 bg-gray-800 border-r border-gray-700 overflow-y-auto flex-shrink-0">
-          <LotPanel />
-          <div className="border-t border-gray-700">
-            <AreaList />
-          </div>
-          <AreaSummary />
-        </aside>
+        {/* View mode toggle */}
+        <div className="absolute top-20 left-4 z-10 flex gap-2 bg-gray-800 rounded-lg p-1 border border-gray-700">
+          <button
+            onClick={() => setViewMode('investment')}
+            className={`px-4 py-2 rounded transition-colors ${
+              viewMode === 'investment'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-300 hover:text-white'
+            }`}
+          >
+            Investment
+          </button>
+          <button
+            onClick={() => setViewMode('floorplan')}
+            className={`px-4 py-2 rounded transition-colors ${
+              viewMode === 'floorplan'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-300 hover:text-white'
+            }`}
+          >
+            Floorplan
+          </button>
+        </div>
 
-        {/* Canvas/Viewer area */}
-        <main className="flex-1 relative bg-gray-950">
-          {activeView === '2d' ? (
-            <Canvas2D
-              onCoordinateChange={(x, y) => setMouseCoords({ x, y })}
-              onAreaCreate={handleAreaCreate}
-            />
-          ) : (
-            <Viewer3D onAreaCreate={handleAreaCreate} />
-          )}
-        </main>
+        {viewMode === 'investment' ? (
+          <>
+            {/* Investment view: Sidebar - Left with Land Config, Scenarios, and Lot Details */}
+            <aside className="w-80 bg-gray-800 border-r border-gray-700 overflow-y-auto flex-shrink-0 flex flex-col">
+              <LandConfigPanel />
+              <div className="border-t border-gray-700">
+                <ScenarioList />
+              </div>
+              <div className="border-t border-gray-700">
+                <LotDetailsPanel />
+              </div>
+            </aside>
 
-        {/* Sidebar - Right (Properties) */}
-        <aside className="w-64 bg-gray-800 border-l border-gray-700 overflow-y-auto flex-shrink-0">
-          <AreaProperties />
-          <div className="border-t border-gray-700">
-            <AIDescriptionPanel />
-          </div>
-        </aside>
+            {/* Investment view: Main canvas with SubdivisionViewer */}
+            <main className="flex-1 relative bg-gray-950 overflow-hidden">
+              <SubdivisionViewer />
+            </main>
+
+            {/* Investment view: Right sidebar - Social Club, Financial Analysis, Pricing, AI Description, and Export/Import */}
+            <aside className="w-96 bg-gray-800 border-l border-gray-700 overflow-y-auto flex-shrink-0">
+              <SocialClubDesigner />
+              <div className="border-t border-gray-700">
+                <FinancialAnalysis />
+              </div>
+              <div className="border-t border-gray-700">
+                <PricingScenarios />
+              </div>
+              <div className="border-t border-gray-700">
+                <AIDescriptionPanel />
+              </div>
+              <div className="border-t border-gray-700">
+                <ExportImport />
+              </div>
+            </aside>
+          </>
+        ) : (
+          <>
+            {/* Floorplan view: Traditional layout */}
+            <aside className="w-64 bg-gray-800 border-r border-gray-700 overflow-y-auto flex-shrink-0">
+              <LandConfigPanel />
+              <div className="border-t border-gray-700">
+                <LotPanel />
+              </div>
+              <div className="border-t border-gray-700">
+                <AreaList />
+              </div>
+              <AreaSummary />
+            </aside>
+
+            {/* Canvas area */}
+            <main className="flex-1 relative bg-gray-950">
+              <Canvas2D
+                onCoordinateChange={(x, y) => setMouseCoords({ x, y })}
+                onAreaCreate={handleAreaCreate}
+              />
+            </main>
+
+            {/* Sidebar - Right (Properties) */}
+            <aside className="w-64 bg-gray-800 border-l border-gray-700 overflow-y-auto flex-shrink-0">
+              <AreaProperties />
+              <div className="border-t border-gray-700">
+                <AIDescriptionPanel />
+              </div>
+            </aside>
+          </>
+        )}
       </div>
 
       {/* Asset Toolbar */}
@@ -372,8 +435,8 @@ function App() {
         areaId={selectedAreaId}
       />
 
-      {/* Tooltip for 3D hover */}
-      <Tooltip visible={activeView === '3d'} />
+      {/* Tooltip */}
+      <Tooltip visible={false} />
 
       {/* Keyboard Shortcuts Help Dialog */}
       {isShortcutsHelpOpen && (

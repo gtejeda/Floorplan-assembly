@@ -10,6 +10,12 @@ const AREA_TYPE_ICONS: Record<AreaType, string> = {
   lounge: '🛋️',
   garden: '🌳',
   parking: '🅿️',
+  door: '🚪',
+  window: '🪟',
+  void: '⬜',
+  column: '🏛️',
+  stairs: '📶',
+  wall: '🧱',
   custom: '📦',
 };
 

@@ -1,16 +1,17 @@
 import type { StateCreator } from 'zustand';
-import type { Project, Lot } from '@models/types';
+import type { Project, InvestmentProject, Lot } from '@models/types';
 import { generateId } from '@lib/uuid';
 import { saveToIDB, exportProjectAsJSON, importProjectFromJSON } from '@lib/storage';
 
 export interface ProjectSlice {
-  project: Project | null;
+  project: Project | InvestmentProject | null;
   isSaving: boolean;
   lastSaveError: string | null;
+  lastSaved: Date | null;
 
   // Actions
   createProject: (name: string, lot?: Partial<Lot>) => void;
-  loadProject: (project: Project) => void;
+  loadProject: (project: Project | InvestmentProject) => void;
   updateLot: (updates: Partial<Lot>) => void;
   updateProjectName: (name: string) => void;
   saveProject: () => Promise<void>;
@@ -29,6 +30,7 @@ export const createProjectSlice: StateCreator<
   project: null,
   isSaving: false,
   lastSaveError: null,
+  lastSaved: null,
 
   createProject: (name, lotOverrides) => {
     const now = new Date().toISOString();
@@ -37,6 +39,7 @@ export const createProjectSlice: StateCreator<
       height: 30,
       gridSize: 1.0,
       unit: 'meters',
+      description: '',
     };
 
     set({
@@ -97,7 +100,7 @@ export const createProjectSlice: StateCreator<
         modified: new Date().toISOString(),
       };
       await saveToIDB(updatedProject);
-      set({ project: updatedProject, isSaving: false });
+      set({ project: updatedProject, isSaving: false, lastSaved: new Date() });
     } catch (error) {
       set({
         isSaving: false,

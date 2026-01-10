@@ -2,7 +2,7 @@
  * Storage utilities for IndexedDB operations and file handling
  */
 import { get, set, del, keys, type UseStore } from 'idb-keyval';
-import type { Project } from '@models/types';
+import type { Project, InvestmentProject } from '@models/types';
 
 // Database configuration
 const DB_NAME = 'floorplan-assembly';
@@ -34,18 +34,112 @@ async function getAssetStore(): Promise<UseStore> {
 
 /**
  * Save a project to IndexedDB
+ * Supports both basic Project and InvestmentProject with image blobs
  */
-export async function saveToIDB(project: Project): Promise<void> {
+export async function saveToIDB(project: Project | InvestmentProject): Promise<void> {
   const store = await getProjectStore();
-  await set(project.id, project, store);
+
+  // If this is an InvestmentProject with images, save them separately
+  if ('landParcel' in project) {
+    const investmentProject = project as InvestmentProject;
+
+    // Save land parcel images
+    if (investmentProject.landParcel?.images) {
+      for (const img of investmentProject.landParcel.images) {
+        if (img.blobData) {
+          await saveImageBlob(img.id, project.id, img.blobData);
+        }
+      }
+    }
+
+    // Save lot images from subdivision scenarios
+    if (investmentProject.subdivisionScenarios) {
+      for (const scenario of investmentProject.subdivisionScenarios) {
+        for (const lot of scenario.lots) {
+          if (lot.images) {
+            for (const img of lot.images) {
+              if (img.blobData) {
+                await saveImageBlob(img.id, project.id, img.blobData);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Create a serializable copy without blob data (stored separately)
+    const serializableProject = {
+      ...investmentProject,
+      landParcel: investmentProject.landParcel ? {
+        ...investmentProject.landParcel,
+        images: investmentProject.landParcel.images.map(img => ({
+          ...img,
+          blobData: null, // Don't store blob in main project object
+        })),
+      } : undefined,
+      subdivisionScenarios: investmentProject.subdivisionScenarios?.map(scenario => ({
+        ...scenario,
+        lots: scenario.lots.map(lot => ({
+          ...lot,
+          images: lot.images.map(img => ({
+            ...img,
+            blobData: null, // Don't store blob in main project object
+          })),
+        })),
+      })),
+    };
+
+    await set(project.id, serializableProject, store);
+  } else {
+    // Regular project without investment features
+    await set(project.id, project, store);
+  }
 }
 
 /**
  * Load a project from IndexedDB by ID
+ * Restores image blobs for InvestmentProject
  */
-export async function loadFromIDB(id: string): Promise<Project | undefined> {
+export async function loadFromIDB(id: string): Promise<Project | InvestmentProject | undefined> {
   const store = await getProjectStore();
-  return get<Project>(id, store);
+  const project = await get<Project | InvestmentProject>(id, store);
+
+  if (!project) return undefined;
+
+  // If this is an InvestmentProject, restore image blobs
+  if ('landParcel' in project) {
+    const investmentProject = project as InvestmentProject;
+
+    // Restore land parcel images
+    if (investmentProject.landParcel?.images) {
+      for (const img of investmentProject.landParcel.images) {
+        const blob = await loadImageBlob(img.id, project.id);
+        if (blob) {
+          img.blobData = blob;
+        }
+      }
+    }
+
+    // Restore lot images from subdivision scenarios
+    if (investmentProject.subdivisionScenarios) {
+      for (const scenario of investmentProject.subdivisionScenarios) {
+        for (const lot of scenario.lots) {
+          if (lot.images) {
+            for (const img of lot.images) {
+              const blob = await loadImageBlob(img.id, project.id);
+              if (blob) {
+                img.blobData = blob;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return investmentProject;
+  }
+
+  return project;
 }
 
 /**
@@ -55,8 +149,9 @@ export async function deleteFromIDB(id: string): Promise<void> {
   const store = await getProjectStore();
   await del(id, store);
 
-  // Also delete associated asset blobs
+  // Also delete associated asset blobs and image blobs
   await deleteProjectAssets(id);
+  await deleteProjectImages(id);
 }
 
 /**
@@ -88,11 +183,34 @@ export async function listProjects(): Promise<{ id: string; name: string; modifi
 /**
  * Get the most recently modified project
  */
-export async function getLastProject(): Promise<Project | undefined> {
+export async function getLastProject(): Promise<Project | InvestmentProject | undefined> {
   const projects = await listProjects();
   if (projects.length === 0) return undefined;
 
   return loadFromIDB(projects[0].id);
+}
+
+/**
+ * Clear all project data from IndexedDB
+ * Used for "Clear Project" functionality
+ */
+export async function clearAllProjects(): Promise<void> {
+  const projectStore = await getProjectStore();
+  const assetStore = await getAssetStore();
+
+  // Get all keys from both stores
+  const projectKeys = await keys<string>(projectStore);
+  const assetKeys = await keys<string>(assetStore);
+
+  // Delete all projects
+  for (const key of projectKeys) {
+    await del(key, projectStore);
+  }
+
+  // Delete all assets and images
+  for (const key of assetKeys) {
+    await del(key, assetStore);
+  }
 }
 
 // ==================== Asset Blob Storage ====================
@@ -130,6 +248,47 @@ async function deleteProjectAssets(projectId: string): Promise<void> {
 
   for (const key of allKeys) {
     if (key.startsWith(`${projectId}:`)) {
+      await del(key, store);
+    }
+  }
+}
+
+// ==================== Image Blob Storage (for Investment Features) ====================
+
+/**
+ * Save an image blob to IndexedDB
+ * Used for land parcel and lot images in investment projects
+ */
+export async function saveImageBlob(imageId: string, projectId: string, blob: Blob): Promise<void> {
+  const store = await getAssetStore();
+  await set(`image:${projectId}:${imageId}`, blob, store);
+}
+
+/**
+ * Load an image blob from IndexedDB
+ */
+export async function loadImageBlob(imageId: string, projectId: string): Promise<Blob | undefined> {
+  const store = await getAssetStore();
+  return get<Blob>(`image:${projectId}:${imageId}`, store);
+}
+
+/**
+ * Delete an image blob from IndexedDB
+ */
+export async function deleteImageBlob(imageId: string, projectId: string): Promise<void> {
+  const store = await getAssetStore();
+  await del(`image:${projectId}:${imageId}`, store);
+}
+
+/**
+ * Delete all image blobs for a project
+ */
+async function deleteProjectImages(projectId: string): Promise<void> {
+  const store = await getAssetStore();
+  const allKeys = await keys<string>(store);
+
+  for (const key of allKeys) {
+    if (key.startsWith(`image:${projectId}:`)) {
       await del(key, store);
     }
   }

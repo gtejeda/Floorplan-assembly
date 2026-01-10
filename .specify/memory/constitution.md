@@ -36,22 +36,26 @@ or equivalent).
 **Rationale**: The application exists to help users understand spatial possibilities within
 real lot dimensions. Inaccurate measurements render the tool useless for planning purposes.
 
-### II. 2D-3D Data Consistency
+### II. Single Source of Truth for Visual Representation
 
-A single source of truth MUST govern both 2D and 3D representations. Changes in the 2D
-editor MUST immediately reflect in the 3D view and vice versa where applicable. The data
-model MUST NOT maintain separate, potentially divergent state for 2D vs 3D. All transforms
-(position, scale, rotation) MUST use a unified coordinate system.
+A single, canonical data model MUST govern all visual representations (2D canvas, export
+formats, print layouts, etc.). Changes to the underlying data model MUST immediately reflect
+in all active views. The application MUST NOT maintain separate, potentially divergent state
+for different visualization modes. All transforms (position, scale, rotation) MUST use a
+unified coordinate system.
 
-**Rationale**: Users switch between views to understand their design. Inconsistency between
-views destroys trust and causes planning errors.
+**Rationale**: Users rely on consistent visual feedback across different views and export
+formats. Data inconsistency destroys trust and causes planning errors.
+
+**Note**: As of Feature 001 (2026-01-09), 3D visualization has been removed from the investment
+platform. This principle now applies to 2D canvas rendering, export formats, and any future
+visualization modes.
 
 ### III. Performance Over Fidelity
 
 The application MUST prioritize responsive interaction (< 100ms for user actions) over
-visual fidelity. 3D rendering MUST maintain 30+ FPS during navigation (zoom, pan, rotate)
-even with reduced detail. Progressive loading and level-of-detail (LOD) strategies SHOULD
-be employed for complex scenes. The 2D editor MUST handle 100+ areas without lag.
+visual fidelity. The 2D editor MUST handle 100+ areas without lag. Progressive loading and
+level-of-detail (LOD) strategies SHOULD be employed for complex scenes where applicable.
 
 **Rationale**: Fast, intuitive floorplan creation requires immediate visual feedback. Users
 will abandon a slow tool regardless of how good it looks.
@@ -82,11 +86,13 @@ Users MUST consciously associate real-world size with every visual element.
 
 **Frontend Framework**: React 18+ with TypeScript (strict mode)
 **2D Rendering**: Konva.js with react-konva for object manipulation
-**3D Rendering**: Babylon.js for WebGL-based 3D visualization with game-like controls
 **State Management**: Zustand for unified application state with Zundo undo/redo middleware
 **Build System**: Vite for fast development iteration
 **Testing**: Vitest for unit tests, Playwright for E2E tests
 **Styling**: Tailwind CSS or CSS Modules
+
+**Note**: Prior to Feature 001, the application included Babylon.js for 3D visualization. This
+has been intentionally removed to focus on investment analysis capabilities and reduce bundle size.
 
 **Storage**: IndexedDB for local persistence, JSON export/import, optional cloud sync
 **File Formats**: JSON (native), optional DXF/SVG export for CAD interoperability
@@ -111,7 +117,7 @@ Users MUST consciously associate real-world size with every visual element.
 ### Review Requirements
 
 - All changes to measurement/coordinate systems require explicit reviewer approval
-- 3D rendering changes MUST include FPS impact assessment
+- Rendering performance changes MUST include performance impact assessment
 - Data model changes MUST maintain backward compatibility or include migration
 
 ## Governance
@@ -138,4 +144,7 @@ compliance with these principles.
 - Violations MUST be documented with justification if accepted
 - Unreviewed violations block merge
 
-**Version**: 1.0.0 | **Ratified**: 2025-12-30 | **Last Amended**: 2025-12-30
+**Version**: 1.1.0 | **Ratified**: 2025-12-30 | **Last Amended**: 2026-01-09
+
+**Amendment History**:
+- v1.1.0 (2026-01-09): Updated Principle II to reflect 2D-only architecture; removed 3D rendering from technology stack and performance requirements (Feature 001: Micro Villas Investment Platform)

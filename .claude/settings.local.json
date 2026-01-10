@@ -29,7 +29,30 @@
       "Bash(git add:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd rotation, descriptions, and per-area asset management\n\nFeatures:\n- Add rotation field to areas \\(0°, 90°, 180°, 270°\\) for doors/windows\n- Add R key shortcut in 3D to rotate selected areas by 90°\n- Add description fields to areas and lot for AI image generation\n- Add AI Description Generator panel with text/JSON output formats\n- Restructure assets to be per-area instead of global project-level\n- Add AreaAssetToolbar with Edit/Preview buttons\n- Add AreaAssetManager dialog for managing area assets\n- Add AssetPreview slideshow with \"View All\" mode\n- Remove asset rendering from 2D canvas and 3D viewer\n\nTechnical:\n- Add baseHeight support for elevated elements \\(windows\\)\n- Add Shift+drag for horizontal movement in 3D\n- Add Ctrl+Shift+drag for vertical movement in 3D\n- Smooth 3D dragging using direct mesh manipulation\n- Backward compatible with existing projects \\(assets ?? []\\)\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File \".specify/scripts/powershell/create-new-feature.ps1\" -Json -Number 1 -ShortName \"micro-villas-investment\" -Description \"Transform floor plan tool into Micro Villas investment and budget platform with land subdivision, social club amenities, and financial analysis\")",
+      "Bash(powershell.exe -Command \"New-Item -ItemType Directory -Force -Path ''D:\\\\potontos\\\\Floorplan-assembly\\\\specs\\\\001-micro-villas-investment\\\\checklists''\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File \".specify/scripts/powershell/check-prerequisites.ps1\" -Json -PathsOnly)",
+      "WebFetch(domain:en.wikipedia.org)",
+      "Bash(.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks)",
+      "Bash(git checkout:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File \".specify/scripts/powershell/check-prerequisites.ps1\" -Json -RequireTasks -IncludeTasks)",
+      "Bash(Test-Path \"D:\\\\potontos\\\\Floorplan-assembly\\\\specs\\\\001-micro-villas-investment\\\\checklists\")",
+      "Bash(if [ -d \"D:\\\\potontos\\\\Floorplan-assembly\\\\specs\\\\001-micro-villas-investment\\\\checklists\" ])",
+      "Bash(then echo \"exists\")",
+      "Bash(else echo \"not found\")",
+      "Bash(fi)",
+      "Bash(pwsh:*)",
+      "Bash(Test-Path \"D:\\\\potontos\\\\Floorplan-assembly\\\\specs\\\\001-micro-villas-investment\\\\checklists\" -PathType Container)",
+      "Bash(if [ -d \"specs/001-micro-villas-investment/checklists\" ])",
+      "Bash(then ls \"specs/001-micro-villas-investment/checklists/\")",
+      "Bash(else echo \"No checklists directory\")",
+      "Bash(test:*)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File \".specify/scripts/powershell/check-prerequisites.ps1\" -Json -RequireTasks -IncludeTasks)",
+      "Bash(if [ -f \"D:\\\\potontos\\\\Floorplan-assembly\\\\src\\\\lib\\\\generateAIDescription.ts\" ])",
+      "Bash(then echo \"File exists\")",
+      "Bash(else echo \"File does not exist\")"
     ]
   }
 }

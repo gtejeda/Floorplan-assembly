@@ -111,10 +111,6 @@ export const selectPan = (state: FloorplanStore) => ({
   y: state.canvas2d.panY,
 });
 
-// Camera state selectors
-export const selectCamera3d = (state: FloorplanStore) => state.camera3d;
-export const selectCameraPosition = (state: FloorplanStore) => state.camera3d.position;
-export const selectCameraTarget = (state: FloorplanStore) => state.camera3d.target;
 
 // Sorted areas selector (by zIndex for rendering)
 export const selectSortedAreas = (state: FloorplanStore): Area[] => {

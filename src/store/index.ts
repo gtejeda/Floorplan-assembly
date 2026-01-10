@@ -5,7 +5,12 @@ import { createProjectSlice, type ProjectSlice } from './slices/projectSlice';
 import { createViewerSlice, type ViewerSlice } from './slices/viewerSlice';
 import { createAreasSlice, type AreasSlice } from './slices/areasSlice';
 import { createAssetsSlice, type AssetsSlice } from './slices/assetsSlice';
+import { createLandSlice, type LandSlice } from './slices/landSlice';
+import { createSubdivisionSlice, type SubdivisionSlice } from './slices/subdivisionSlice';
+import { createSocialClubSlice, type SocialClubSlice } from './slices/socialClubSlice';
+import { createFinancialSlice, type FinancialSlice } from './slices/financialSlice';
 import { saveToIDB } from '@lib/storage';
+import type { InvestmentProject } from '@/models/types';
 
 // Simple debounce implementation
 function debounce<T extends (...args: Parameters<T>) => void>(
@@ -25,7 +30,7 @@ function debounce<T extends (...args: Parameters<T>) => void>(
 }
 
 // Combined store type
-export type FloorplanStore = ProjectSlice & ViewerSlice & AreasSlice & AssetsSlice;
+export type FloorplanStore = ProjectSlice & ViewerSlice & AreasSlice & AssetsSlice & LandSlice & SubdivisionSlice & SocialClubSlice & FinancialSlice;
 
 // Partialized state type for temporal
 type PartializedState = {
@@ -40,6 +45,10 @@ export const useFloorplanStore = create<FloorplanStore>()(
       ...createViewerSlice(...args),
       ...createAreasSlice(...args),
       ...createAssetsSlice(...args),
+      ...createLandSlice(...args),
+      ...createSubdivisionSlice(...args),
+      ...createSocialClubSlice(...args),
+      ...createFinancialSlice(...args),
     }),
     {
       // Only track project-related state for undo/redo
@@ -55,9 +64,14 @@ export const useFloorplanStore = create<FloorplanStore>()(
 // Auto-save functionality with 500ms debounce
 const debouncedSave = debounce((project: FloorplanStore['project']) => {
   if (project) {
-    saveToIDB(project).catch((error) => {
-      console.error('Auto-save failed:', error);
-    });
+    saveToIDB(project)
+      .then(() => {
+        // Update lastSaved timestamp after successful save
+        useFloorplanStore.setState({ lastSaved: new Date() });
+      })
+      .catch((error) => {
+        console.error('Auto-save failed:', error);
+      });
   }
 }, 500);
 
@@ -67,6 +81,66 @@ useFloorplanStore.subscribe(
     // Only trigger auto-save when project data changes
     if (state.project !== prevState.project && state.project) {
       debouncedSave(state.project);
+    }
+  }
+);
+
+// T058: Subscribe to land parcel changes for automatic subdivision regeneration
+useFloorplanStore.subscribe(
+  (state, prevState) => {
+    // Only regenerate if land parcel dimensions change
+    const landChanged = state.landParcel && prevState.landParcel && (
+      state.landParcel.width !== prevState.landParcel.width ||
+      state.landParcel.height !== prevState.landParcel.height
+    );
+
+    // Or if land parcel was just created
+    const landCreated = state.landParcel && !prevState.landParcel;
+
+    if ((landChanged || landCreated) && state.landParcel) {
+      state.regenerateSubdivisionScenarios(state.landParcel);
+    }
+  }
+);
+
+// T069: Sync investment data (land, subdivision, social club, financial) to project object
+// This ensures that changes to investment slices trigger auto-save
+useFloorplanStore.subscribe(
+  (state, prevState) => {
+    const project = state.project;
+
+    // Only sync if we have a project
+    if (!project) return;
+
+    // Check if any investment data changed
+    const landChanged = state.landParcel !== prevState.landParcel;
+    const subdivisionChanged = state.subdivisionScenarios !== prevState.subdivisionScenarios ||
+                               state.selectedScenarioId !== prevState.selectedScenarioId;
+    const socialClubChanged = state.selectedAmenities !== prevState.selectedAmenities ||
+                              state.storageType !== prevState.storageType ||
+                              state.customAmenityCosts !== prevState.customAmenityCosts;
+    const financialChanged = state.financialAnalysis !== prevState.financialAnalysis ||
+                             state.targetProfitMargins !== prevState.targetProfitMargins;
+
+    // If any investment data changed, update the project object
+    if (landChanged || subdivisionChanged || socialClubChanged || financialChanged) {
+      const investmentProject: InvestmentProject = {
+        ...project,
+        landParcel: state.landParcel!,
+        subdivisionScenarios: state.subdivisionScenarios || [],
+        selectedScenarioId: state.selectedScenarioId,
+        socialClub: {
+          selectedAmenities: state.selectedAmenities,
+          storageType: state.storageType,
+          customAmenityCosts: state.customAmenityCosts,
+        },
+        financialAnalysis: state.financialAnalysis!,
+        targetProfitMargins: state.targetProfitMargins || [15, 20, 25, 30],
+        modified: new Date().toISOString(),
+      };
+
+      // Update the project (this will trigger auto-save)
+      state.loadProject(investmentProject);
     }
   }
 );
@@ -104,6 +178,10 @@ export type { ProjectSlice } from './slices/projectSlice';
 export type { ViewerSlice } from './slices/viewerSlice';
 export type { AreasSlice } from './slices/areasSlice';
 export type { AssetsSlice } from './slices/assetsSlice';
+export type { LandSlice } from './slices/landSlice';
+export type { SubdivisionSlice } from './slices/subdivisionSlice';
+export type { SocialClubSlice } from './slices/socialClubSlice';
+export type { FinancialSlice } from './slices/financialSlice';
 
 // Expose store on window for E2E testing
 if (typeof window !== 'undefined') {
